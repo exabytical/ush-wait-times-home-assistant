@@ -1,0 +1,12 @@
+{
+  "domain": "ush_wait_times",
+  "name": "Universal Studios Hollywood Wait Times",
+  "codeowners": ["@exabytical"],
+  "config_flow": true,
+  "documentation": "https://github.com/exabytical/ush-wait-times-home-assistant/blob/main/README.md",
+  "issue_tracker": "https://github.com/exabytical/ush-wait-times-home-assistant/issues",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "1.1.0"
+}

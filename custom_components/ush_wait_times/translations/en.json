@@ -1,0 +1,17 @@
+{
+  "title": "Universal Studios Hollywood Wait Times",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Universal Studios Hollywood Wait Times",
+        "description": "Poll live attraction wait times from Universal Parks.",
+        "data": {
+          "scan_interval": "Update interval (seconds)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This integration is already configured."
+    }
+  }
+}

@@ -13,5 +13,16 @@
     "abort": {
       "already_configured": "This integration is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Select attractions",
+        "description": "Choose which rides to track as individual sensors. None are selected by default.",
+        "data": {
+          "attractions": "Attractions"
+        }
+      }
+    }
   }
 }

@@ -9,6 +9,7 @@ API_URL = (
 )
 
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_ATTRACTIONS = "attractions"
 
 ATTR_STATUS = "status"
 ATTR_QUEUE_TYPE = "queue_type"

@@ -1,10 +1,13 @@
 """Basic tests for USH wait times integration."""
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_SCAN_INTERVAL
 
 from custom_components.ush_wait_times.const import DEFAULT_SCAN_INTERVAL, DOMAIN
 from custom_components.ush_wait_times.sensor import (
-    build_wait_time_attributes,
+    build_attraction_attributes,
+    build_device_info,
+    filter_selected_attractions,
     parse_wait_time,
     slugify_attraction_id,
     standby_queue,
@@ -32,7 +35,7 @@ def test_manifest_path():
 
 
 def test_slugify_attraction_id():
-    attraction_id = "ush.upper_lot.rides.mario_kart_bowsers_challenge"
+    attraction_id = "ush.upper.lot.rides.mario_kart_bowsers_challenge"
     assert slugify_attraction_id(attraction_id) == "upper_lot_rides_mario_kart_bowsers_challenge"
 
 
@@ -52,19 +55,56 @@ def test_parse_wait_time():
     assert parse_wait_time(None) is None
 
 
-def test_build_wait_time_attributes():
+def test_filter_selected_attractions():
     attractions = [
         {
             "wait_time_attraction_id": "ush.upper_lot.rides.mario_kart_bowsers_challenge",
-            "queues": [{"queue_type": "STANDBY", "display_wait_time": 45}],
+            "name": "Mario Kart",
         },
         {
             "wait_time_attraction_id": "ush.lower_lot.rides.jurassic_world_the_ride",
-            "queues": [{"queue_type": "STANDBY", "display_wait_time": 30}],
+            "name": "Jurassic World",
         },
     ]
-    attrs = build_wait_time_attributes(attractions)
-    assert attrs == {
-        "ush_upper_lot_rides_mario_kart_bowsers_challenge": 45,
-        "ush_lower_lot_rides_jurassic_world_the_ride": 30,
+    selected = filter_selected_attractions(
+        attractions,
+        ["ush.upper_lot.rides.mario_kart_bowsers_challenge"],
+    )
+    assert len(selected) == 1
+    assert selected[0]["name"] == "Mario Kart"
+    assert filter_selected_attractions(attractions, []) == []
+
+
+def test_build_attraction_attributes():
+    attraction = {
+        "wait_time_attraction_id": "ush.upper_lot.rides.mario_kart_bowsers_challenge",
+        "land_id": "ush.upper_lot.super_nintendo_world",
+        "venue_id": "ush.upper_lot",
+        "resort_area_code": "USH",
+        "modified_at": "2026-08-16T17:32:07.960Z",
+        "has_single_rider": False,
+        "name": "Mario Kart",
+        "category": "general",
     }
+    queue = {"queue_type": "STANDBY", "status": "OPEN", "display_wait_time": 45}
+    attrs = build_attraction_attributes(attraction, queue)
+    assert attrs["status"] == "OPEN"
+    assert attrs["display_wait_time"] == 45
+    assert attrs["land_id"] == "ush.upper_lot.super_nintendo_world"
+    assert attrs["name"] == "Mario Kart"
+
+
+def test_build_device_info():
+    entry = ConfigEntry(
+        version=1,
+        minor_version=1,
+        domain=DOMAIN,
+        title="USH Wait Times",
+        data={},
+        source="user",
+        entry_id="test-entry-id",
+        unique_id=DOMAIN,
+    )
+    device_info = build_device_info(entry)
+    assert device_info["identifiers"] == {(DOMAIN, "test-entry-id")}
+    assert device_info["name"] == "Universal Studios Hollywood"

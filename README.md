@@ -22,33 +22,35 @@ Copy `custom_components/ush_wait_times` to HA `config/custom_components/` and re
 
 ## Setup
 
-**Settings → Devices & Services → Add Integration** → **Universal Studios Hollywood Wait Times**
+1. **Settings → Devices & Services → Add Integration** → **Universal Studios Hollywood Wait Times**
+2. Set the poll interval (optional)
+3. Open the integration → **Configure** → select the rides you want to track
 
-## Entity
+No sensors are created until you pick rides in **Configure**. All selected rides appear under one device: **Universal Studios Hollywood**.
 
-The integration creates a single sensor:
+## Entities
 
-- `sensor.ush_wait_times`
+Each selected ride becomes its own sensor. State = wait time in minutes.
 
-The sensor state is `unknown` — all wait times live in **attributes**, keyed by attraction slug:
+Examples:
 
-```yaml
-{{ state_attr('sensor.ush_wait_times', 'ush_upper_lot_rides_mario_kart_bowsers_challenge') }}
-{{ state_attr('sensor.ush_wait_times', 'ush_upper_lot_rides_harry_potter_and_the_forbidden_journey') }}
-{{ state_attr('sensor.ush_wait_times', 'ush_lower_lot_rides_jurassic_world_the_ride') }}
-```
+- `sensor.ush_upper_lot_rides_mario_kart_bowsers_challenge`
+- `sensor.ush_upper_lot_rides_harry_potter_and_the_forbidden_journey`
+- `sensor.ush_lower_lot_rides_jurassic_world_the_ride`
 
-Each attribute value is the standby wait time in minutes (or `null` if unavailable).
+Each sensor also exposes attributes such as `status`, `land_id`, `venue_id`, and `modified_at`.
 
-No devices or areas are created.
+## Changing rides
 
-## Upgrading from v1.0.x
+**Settings → Devices & Services → Universal Studios Hollywood Wait Times → Configure**
 
-If you previously installed v1.0.x (which created one sensor per attraction):
+Add or remove rides at any time. The integration reloads and updates sensors automatically.
 
-1. Remove the integration (Settings → Devices & Services → Universal Studios Hollywood Wait Times → Delete).
-2. Delete any leftover per-ride devices, sensors, and theme-park Areas.
-3. Re-add the integration — you should see exactly one entity: `sensor.ush_wait_times`.
+## Upgrading from v1.1.x
+
+1. Update via HACS and restart Home Assistant
+2. Open **Configure** and select your rides
+3. Delete the old `sensor.ush_wait_times` entity from the entity registry if it remains
 
 ## License
 

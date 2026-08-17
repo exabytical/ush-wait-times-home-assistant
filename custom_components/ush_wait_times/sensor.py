@@ -7,10 +7,25 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import (
+    ATTR_ATTRACTION_ID,
+    ATTR_DISPLAY_WAIT_TIME,
+    ATTR_HAS_SINGLE_RIDER,
+    ATTR_LAND_ID,
+    ATTR_MODIFIED_AT,
+    ATTR_QUEUE_TYPE,
+    ATTR_RESORT_AREA,
+    ATTR_STATUS,
+    ATTR_VENUE_ID,
+    CONF_ATTRACTIONS,
+    DOMAIN,
+)
 from .coordinator import UshWaitTimeCoordinator
 
 
@@ -40,16 +55,48 @@ def parse_wait_time(queue: dict[str, Any] | None) -> int | None:
         return None
 
 
-def build_wait_time_attributes(attractions: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build flat attribute dict keyed by attraction slug."""
-    attrs: dict[str, Any] = {}
-    for attraction in attractions:
-        attraction_id = attraction.get("wait_time_attraction_id")
-        if not attraction_id:
-            continue
-        slug = f"ush_{slugify_attraction_id(attraction_id)}"
-        attrs[slug] = parse_wait_time(standby_queue(attraction))
-    return attrs
+def filter_selected_attractions(
+    attractions: list[dict[str, Any]], selected_ids: list[str]
+) -> list[dict[str, Any]]:
+    """Return attractions whose IDs are in the selected list."""
+    if not selected_ids:
+        return []
+    selected = set(selected_ids)
+    return [
+        attraction
+        for attraction in attractions
+        if attraction.get("wait_time_attraction_id") in selected
+    ]
+
+
+def build_device_info(entry: ConfigEntry) -> DeviceInfo:
+    """Return shared device info for all ride sensors."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="Universal Studios Hollywood",
+        manufacturer="Universal Parks",
+        model="Wait Times",
+    )
+
+
+def build_attraction_attributes(
+    attraction: dict[str, Any], queue: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Build extra state attributes for a single attraction."""
+    queue = queue or {}
+    return {
+        ATTR_ATTRACTION_ID: attraction.get("wait_time_attraction_id"),
+        ATTR_STATUS: queue.get("status"),
+        ATTR_QUEUE_TYPE: queue.get("queue_type"),
+        ATTR_DISPLAY_WAIT_TIME: queue.get("display_wait_time"),
+        ATTR_LAND_ID: attraction.get("land_id"),
+        ATTR_VENUE_ID: attraction.get("venue_id"),
+        ATTR_RESORT_AREA: attraction.get("resort_area_code"),
+        ATTR_MODIFIED_AT: attraction.get("modified_at"),
+        ATTR_HAS_SINGLE_RIDER: attraction.get("has_single_rider"),
+        "name": attraction.get("name"),
+        "category": attraction.get("category"),
+    }
 
 
 async def async_setup_entry(
@@ -58,28 +105,55 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: UshWaitTimeCoordinator = entry.runtime_data
-    async_add_entities([UshWaitTimesSensor(coordinator, entry)])
+    selected_ids = entry.options.get(CONF_ATTRACTIONS, [])
+    attractions = filter_selected_attractions(coordinator.data or [], selected_ids)
+    async_add_entities(
+        UshWaitTimeSensor(coordinator, entry, attraction) for attraction in attractions
+    )
 
 
-class UshWaitTimesSensor(CoordinatorEntity[UshWaitTimeCoordinator], SensorEntity):
-    """All USH attraction wait times in a single sensor."""
+class UshWaitTimeSensor(CoordinatorEntity[UshWaitTimeCoordinator], SensorEntity):
+    """Wait time for a selected USH attraction."""
 
-    _attr_has_entity_name = False
+    _attr_has_entity_name = True
     _attr_icon = "mdi:timer-sand"
-    _attr_name = "USH Wait Times"
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
 
-    def __init__(self, coordinator: UshWaitTimeCoordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self,
+        coordinator: UshWaitTimeCoordinator,
+        entry: ConfigEntry,
+        attraction: dict[str, Any],
+    ) -> None:
         super().__init__(coordinator)
-        self._attr_unique_id = entry.entry_id
-        self._attr_suggested_object_id = "ush_wait_times"
+        self._entry = entry
+        self._attraction_id = attraction["wait_time_attraction_id"]
+        self._attr_unique_id = self._attraction_id
+        self._attr_suggested_object_id = f"ush_{slugify_attraction_id(self._attraction_id)}"
+        self._attr_name = attraction["name"]
+        self._attr_device_info = build_device_info(entry)
 
     @property
-    def native_value(self) -> None:
+    def available(self) -> bool:
+        return super().available and self._attraction is not None
+
+    @property
+    def _attraction(self) -> dict[str, Any] | None:
+        for attraction in self.coordinator.data or []:
+            if attraction.get("wait_time_attraction_id") == self._attraction_id:
+                return attraction
         return None
 
     @property
+    def native_value(self) -> int | None:
+        attraction = self._attraction
+        if attraction is None:
+            return None
+        return parse_wait_time(standby_queue(attraction))
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        attrs = build_wait_time_attributes(self.coordinator.data or [])
-        if self.coordinator.last_update_success and self.coordinator.last_update_success_time:
-            attrs["last_updated"] = self.coordinator.last_update_success_time.isoformat()
-        return attrs
+        attraction = self._attraction
+        if attraction is None:
+            return {}
+        return build_attraction_attributes(attraction, standby_queue(attraction))

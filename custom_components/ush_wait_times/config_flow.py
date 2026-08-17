@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_SCAN_INTERVAL
+from homeassistant.helpers import selector
 
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .api import async_fetch_attractions
+from .const import CONF_ATTRACTIONS, DEFAULT_SCAN_INTERVAL, DOMAIN
 
 DATA_SCHEMA = vol.Schema(
     {
@@ -23,6 +26,13 @@ class UshWaitTimeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> OptionsFlow:
+        """Return the options flow handler."""
+        return UshWaitTimeOptionsFlow()
+
     async def async_step_user(
         self, user_input: dict | None = None
     ) -> ConfigFlowResult:
@@ -33,3 +43,36 @@ class UshWaitTimeConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
 
         return self.async_create_entry(title="USH Wait Times", data=user_input)
+
+
+class UshWaitTimeOptionsFlow(OptionsFlow):
+    """Handle options for USH wait times."""
+
+    async def async_step_init(
+        self, user_input: dict | None = None
+    ) -> ConfigFlowResult:
+        """Manage ride selection options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        attractions = await async_fetch_attractions(self.hass)
+        attraction_options = {
+            attraction["wait_time_attraction_id"]: attraction["name"]
+            for attraction in sorted(attractions, key=lambda item: item["name"].lower())
+        }
+        current = self.config_entry.options.get(CONF_ATTRACTIONS, [])
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ATTRACTIONS, default=current): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=attraction_options,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        ),
+                    ),
+                }
+            ),
+        )

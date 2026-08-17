@@ -12,6 +12,9 @@
     },
     "abort": {
       "already_configured": "This integration is already configured."
+    },
+    "error": {
+      "cannot_connect": "Could not fetch attractions from Universal Parks."
     }
   },
   "options": {

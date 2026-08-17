@@ -8,14 +8,17 @@ from typing import Any
 
 import aiohttp
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import (
+    TimestampDataUpdateCoordinator,
+    UpdateFailed,
+)
 
 from .const import API_URL, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class UshWaitTimeCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
+class UshWaitTimeCoordinator(TimestampDataUpdateCoordinator[list[dict[str, Any]]]):
     """Fetch wait times for all attractions."""
 
     def __init__(self, hass: HomeAssistant, scan_interval: int) -> None:

@@ -51,10 +51,14 @@ def standby_queue(attraction: dict[str, Any]) -> dict[str, Any] | None:
     return queues[0] if queues else None
 
 
-def parse_wait_time(queue: dict[str, Any] | None) -> int | None:
-    """Return wait minutes, using 0 when the ride is closed without a posted wait."""
+def parse_sensor_state(queue: dict[str, Any] | None) -> int | str | None:
+    """Return CLOSED when closed, otherwise wait minutes when available."""
     if queue is None:
         return None
+
+    status = (queue.get("status") or "").upper()
+    if status in {"CLOSED", "OFFLINE"}:
+        return "CLOSED"
 
     wait = queue.get("display_wait_time")
     if wait is not None:
@@ -63,11 +67,13 @@ def parse_wait_time(queue: dict[str, Any] | None) -> int | None:
         except (TypeError, ValueError):
             pass
 
-    status = (queue.get("status") or "").upper()
-    if status in {"CLOSED", "OFFLINE"}:
-        return 0
-
     return None
+
+
+def parse_wait_time(queue: dict[str, Any] | None) -> int | None:
+    """Return numeric wait minutes only."""
+    state = parse_sensor_state(queue)
+    return state if isinstance(state, int) else None
 
 
 def normalize_selected_ids(selected_ids: Any) -> list[str]:
@@ -199,11 +205,18 @@ class UshWaitTimeSensor(CoordinatorEntity[UshWaitTimeCoordinator], SensorEntity)
         return None
 
     @property
-    def native_value(self) -> int | None:
+    def native_unit_of_measurement(self) -> str | None:
+        value = self.native_value
+        if isinstance(value, str):
+            return None
+        return UnitOfTime.MINUTES
+
+    @property
+    def native_value(self) -> int | str | None:
         attraction = self._attraction
         if attraction is None:
             return None
-        return parse_wait_time(standby_queue(attraction))
+        return parse_sensor_state(standby_queue(attraction))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

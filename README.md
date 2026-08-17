@@ -30,7 +30,7 @@ No sensors are created until you pick rides in **Configure**. All selected rides
 
 ## Entities
 
-Each selected ride becomes its own sensor. State = wait time in minutes.
+Each selected ride becomes its own sensor. State is wait time in minutes, or `CLOSED` when the ride is not operating.
 
 Examples:
 

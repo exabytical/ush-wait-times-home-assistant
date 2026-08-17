@@ -10,6 +10,7 @@ from custom_components.ush_wait_times.sensor import (
     filter_selected_attractions,
     land_display_name,
     normalize_selected_ids,
+    parse_sensor_state,
     parse_wait_time,
     slugify_attraction_id,
     standby_queue,
@@ -51,10 +52,17 @@ def test_standby_queue_prefers_standby():
     assert standby_queue(attraction) == {"queue_type": "STANDBY", "display_wait_time": 45}
 
 
+def test_parse_sensor_state():
+    assert parse_sensor_state({"display_wait_time": "30", "status": "OPEN"}) == 30
+    assert parse_sensor_state({"display_wait_time": 20, "status": "CLOSED"}) == "CLOSED"
+    assert parse_sensor_state({"display_wait_time": None, "status": "CLOSED"}) == "CLOSED"
+    assert parse_sensor_state({"display_wait_time": None, "status": "OPEN"}) is None
+    assert parse_sensor_state(None) is None
+
+
 def test_parse_wait_time():
-    assert parse_wait_time({"display_wait_time": "30"}) == 30
-    assert parse_wait_time({"display_wait_time": None}) is None
-    assert parse_wait_time({"display_wait_time": None, "status": "CLOSED"}) == 0
+    assert parse_wait_time({"display_wait_time": "30", "status": "OPEN"}) == 30
+    assert parse_wait_time({"display_wait_time": 20, "status": "CLOSED"}) is None
     assert parse_wait_time(None) is None
 
 

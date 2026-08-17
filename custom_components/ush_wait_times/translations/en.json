@@ -8,6 +8,13 @@
         "data": {
           "scan_interval": "Update interval (seconds)"
         }
+      },
+      "attractions": {
+        "title": "Select attractions",
+        "description": "Choose which rides to track as individual sensors.",
+        "data": {
+          "attractions": "Attractions"
+        }
       }
     },
     "abort": {

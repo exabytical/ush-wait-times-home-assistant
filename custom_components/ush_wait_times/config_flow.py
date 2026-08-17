@@ -28,10 +28,41 @@ DATA_SCHEMA = vol.Schema(
 )
 
 
+def build_attraction_selector_schema(
+    attractions: list[dict[str, Any]],
+    current: list[str] | None = None,
+) -> vol.Schema:
+    """Build the ride multi-select schema."""
+    attraction_options = [
+        SelectOptionDict(
+            value=attraction["wait_time_attraction_id"],
+            label=attraction["name"],
+        )
+        for attraction in sorted(attractions, key=lambda item: item["name"].lower())
+    ]
+
+    schema = vol.Schema(
+        {
+            vol.Optional(CONF_ATTRACTIONS): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=attraction_options,
+                    multiple=True,
+                    mode=SelectSelectorMode.LIST,
+                ),
+            ),
+        }
+    )
+    return schema
+
+
 class UshWaitTimeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for USH wait times."""
 
     VERSION = 1
+
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._scan_interval = DEFAULT_SCAN_INTERVAL
 
     @staticmethod
     @callback
@@ -50,7 +81,33 @@ class UshWaitTimeConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is None:
             return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
 
-        return self.async_create_entry(title="USH Wait Times", data=user_input)
+        self._scan_interval = user_input[CONF_SCAN_INTERVAL]
+        return await self.async_step_attractions()
+
+    async def async_step_attractions(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Select rides during initial setup."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="USH Wait Times",
+                data={CONF_SCAN_INTERVAL: self._scan_interval},
+                options={CONF_ATTRACTIONS: user_input.get(CONF_ATTRACTIONS) or []},
+            )
+
+        errors: dict[str, str] = {}
+        try:
+            attractions = await async_fetch_attractions(self.hass)
+        except Exception:
+            _LOGGER.exception("Failed to fetch attractions during setup")
+            errors["base"] = "cannot_connect"
+            attractions = []
+
+        return self.async_show_form(
+            step_id="attractions",
+            data_schema=build_attraction_selector_schema(attractions),
+            errors=errors,
+        )
 
 
 class UshWaitTimeOptionsFlow(OptionsFlow):
@@ -69,36 +126,17 @@ class UshWaitTimeOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
         try:
             attractions = await async_fetch_attractions(self.hass)
-        except Exception as err:
+        except Exception:
             _LOGGER.exception("Failed to fetch attractions for options flow")
             errors["base"] = "cannot_connect"
             attractions = []
 
-        attraction_options = [
-            SelectOptionDict(
-                value=attraction["wait_time_attraction_id"],
-                label=attraction["name"],
-            )
-            for attraction in sorted(attractions, key=lambda item: item["name"].lower())
-        ]
         current = self.config_entry.options.get(CONF_ATTRACTIONS, [])
-
-        schema = vol.Schema(
-            {
-                vol.Optional(CONF_ATTRACTIONS): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=attraction_options,
-                        multiple=True,
-                        mode=SelectSelectorMode.LIST,
-                    ),
-                ),
-            }
-        )
 
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(
-                schema,
+                build_attraction_selector_schema(attractions, current),
                 {CONF_ATTRACTIONS: current},
             ),
             errors=errors,

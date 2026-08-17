@@ -8,6 +8,8 @@ from custom_components.ush_wait_times.sensor import (
     build_attraction_attributes,
     build_device_info,
     filter_selected_attractions,
+    land_display_name,
+    normalize_selected_ids,
     parse_wait_time,
     slugify_attraction_id,
     standby_queue,
@@ -52,7 +54,19 @@ def test_standby_queue_prefers_standby():
 def test_parse_wait_time():
     assert parse_wait_time({"display_wait_time": "30"}) == 30
     assert parse_wait_time({"display_wait_time": None}) is None
+    assert parse_wait_time({"display_wait_time": None, "status": "CLOSED"}) == 0
     assert parse_wait_time(None) is None
+
+
+def test_normalize_selected_ids():
+    assert normalize_selected_ids([" a ", "b"]) == ["a", "b"]
+    assert normalize_selected_ids("bad") == []
+    assert normalize_selected_ids([]) == []
+
+
+def test_land_display_name():
+    assert land_display_name("ush.upper_lot.wwohp") == "Wizarding World"
+    assert land_display_name("ush.upper_lot.super_nintendo_world") == "Super Nintendo World"
 
 
 def test_filter_selected_attractions():
@@ -90,7 +104,7 @@ def test_build_attraction_attributes():
     attrs = build_attraction_attributes(attraction, queue)
     assert attrs["status"] == "OPEN"
     assert attrs["display_wait_time"] == 45
-    assert attrs["land_id"] == "ush.upper_lot.super_nintendo_world"
+    assert attrs["land"] == "Super Nintendo World"
     assert attrs["name"] == "Mario Kart"
 
 
@@ -107,4 +121,4 @@ def test_build_device_info():
     )
     device_info = build_device_info(entry)
     assert device_info["identifiers"] == {(DOMAIN, "test-entry-id")}
-    assert device_info["name"] == "Universal Studios Hollywood"
+    assert device_info["name"] == "USH Wait Times"
